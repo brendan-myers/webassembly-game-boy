@@ -1,0 +1,77 @@
+<html>
+    <head>
+        <title>WebAssembly Game Boy Emulator</title>
+        <link href="style.css" rel="stylesheet" type="text/css" />
+    </head>
+
+    <body>
+        <canvas id="screen" width="640" height="576"></canvas>
+        <div>
+            <input type="file" id="romFile">
+        </div>
+    </body>
+    
+    <script type="text/javascript" src="load_wasm.js" charset="utf-8"></script>
+    <script>
+        const CLK_RATE = 0.001; // slow while we build!
+        const CLK_TICK = 1 / CLK_RATE;
+
+        const memory = new WebAssembly.Memory({ initial: 2 });  // use the 2nd page for registers et al (for now, TODO lookup out where they go)
+        let gb_cpu = null;
+
+        const importObject = {
+            js: {
+                memory: memory
+            },
+            console: {
+                raw_log:  console.log,
+                char_log: c => console.log(String.fromCharCode(c)),
+                hex_log:  h => console.log(h.toString(16))
+            }
+        };
+
+
+        // load wasm
+        fetchAndInstantiate('gb_cpu.wasm', importObject).then(results => {
+            console.log('wasm loaded');
+            gb_cpu = results;
+        });
+
+
+        // read ROM
+        const fileInput = document.getElementById('romFile');
+
+        fileInput.addEventListener('change', e => {
+            var file = fileInput.files[0];
+            var reader = new FileReader();
+
+            reader.onload = e => {
+                const dataView = new DataView(reader.result);
+
+                // TODO almost certainly a better way to do this
+                for (let i=0; i<dataView.byteLength; i++) {
+                    new Uint32Array(memory.buffer)[i] = dataView.getUint8(i);
+                }
+
+                gb_cpu.exports.reset();
+
+                running = true;
+            }
+
+            // TODO check ROM is valid
+            reader.readAsArrayBuffer(file);
+        });
+
+
+        // program control
+        let running = false;
+        const tick = () => {
+            if (running) {
+                gb_cpu.exports.tick();
+            }
+            setTimeout(tick, CLK_TICK);
+        };
+
+        setTimeout(tick, CLK_TICK);
+    </script>
+</html>
