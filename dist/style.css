@@ -12,3 +12,12 @@ body {
     background: #cadc9f;
     border-radius: 3px;
 }
+
+.reg {
+    width: 320px;
+    font-family: Courier New, Courier, monospace;
+}
+
+.reg b {
+    width: 50px;
+}

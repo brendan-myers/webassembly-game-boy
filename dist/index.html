@@ -9,6 +9,24 @@
         <div>
             <input type="file" id="romFile">
         </div>
+
+        <br/>
+
+        <div>
+            <b>Registers</b>
+            <!-- // TODO don't be lazy and use spaces -->
+            <div class="reg">Reg A&nbsp;&nbsp;&nbsp;<span id="reg_a"></span></div>
+            <div class="reg">Reg F&nbsp;&nbsp;&nbsp;<span id="reg_f"></span></div>
+            <div class="reg">Reg B&nbsp;&nbsp;&nbsp;<span id="reg_b"></span></div>
+            <div class="reg">Reg C&nbsp;&nbsp;&nbsp;<span id="reg_c"></span></div>
+            <div class="reg">Reg D&nbsp;&nbsp;&nbsp;<span id="reg_d"></span></div>
+            <div class="reg">Reg E&nbsp;&nbsp;&nbsp;<span id="reg_e"></span></div>
+            <div class="reg">Reg H&nbsp;&nbsp;&nbsp;<span id="reg_h"></span></div>
+            <div class="reg">Reg L&nbsp;&nbsp;&nbsp;<span id="reg_l"></span></div>
+            <div class="reg">SP&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="sp"></span></div>
+            <div class="reg">PC&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="pc"></span></div>
+            <div class="reg">Flags&nbsp;&nbsp;&nbsp;<span id="flags"></span></div>
+        </div>
     </body>
     
     <script type="text/javascript" src="load_wasm.js" charset="utf-8"></script>
@@ -50,7 +68,7 @@
 
                 // TODO almost certainly a better way to do this
                 for (let i=0; i<dataView.byteLength; i++) {
-                    new Uint32Array(memory.buffer)[i] = dataView.getUint8(i);
+                    new Uint8Array(memory.buffer)[i] = dataView.getUint8(i);
                 }
 
                 gb_cpu.exports.reset();
@@ -66,6 +84,7 @@
         // program control
         let running = false;
         const tick = () => {
+            printMemory();
             if (running) {
                 gb_cpu.exports.tick();
             }
@@ -73,5 +92,34 @@
         };
 
         setTimeout(tick, CLK_TICK);
+
+
+        // dump memory contents
+        printMemory = () => {
+            const regs = [
+                { reg: 'reg_a', addr: 0x10008, len: 1},
+                { reg: 'reg_b', addr: 0x1000c, len: 1},
+                { reg: 'reg_c', addr: 0x1000e, len: 1},
+                { reg: 'reg_d', addr: 0x10010, len: 1},
+                { reg: 'reg_e', addr: 0x10012, len: 1},
+                { reg: 'reg_f', addr: 0x1000a, len: 1},
+                { reg: 'reg_h', addr: 0x10014, len: 1},
+                { reg: 'reg_l', addr: 0x10016, len: 1},
+                { reg: 'sp', addr: 0x10004, len: 2},
+                { reg: 'pc', addr: 0x10000, len: 2},
+                { reg: 'flags', addr: 0x10018, len: 4}
+            ];
+
+            for (let i=0; i<regs.length; i++) {
+                let bytes = new Uint8Array(memory.buffer, regs[i].addr, regs[i].len);
+                let s = '';
+                
+                for (let j=0; j<regs[i].len; j++) {
+                    s += ((bytes[j] & 0xFF).toString(16) + ' ');
+                }
+
+                document.getElementById(regs[i].reg).innerText = s;
+            }
+        }
     </script>
 </html>
