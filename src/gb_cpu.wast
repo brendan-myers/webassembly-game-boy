@@ -28,16 +28,16 @@
     )
     (type $instr (func))
     (global $pc_addr i32 (i32.const 0x10000))
-    (global $sp_addr i32 (i32.const 0x10000))
+    (global $sp_addr i32 (i32.const 0x10002))
 
-    (global $reg_a_addr i32 (i32.const 0x10000))
-    (global $reg_f_addr i32 (i32.const 0x10000))
-    (global $reg_b_addr i32 (i32.const 0x10000))
-    (global $reg_c_addr i32 (i32.const 0x10000))
-    (global $reg_d_addr i32 (i32.const 0x10000))
-    (global $reg_e_addr i32 (i32.const 0x10000))
-    (global $reg_h_addr i32 (i32.const 0x10000))
-    (global $reg_l_addr i32 (i32.const 0x10000))
+    (global $reg_a_addr i32 (i32.const 0x10004))
+    (global $reg_f_addr i32 (i32.const 0x10005))
+    (global $reg_b_addr i32 (i32.const 0x10006))
+    (global $reg_c_addr i32 (i32.const 0x10007))
+    (global $reg_d_addr i32 (i32.const 0x10008))
+    (global $reg_e_addr i32 (i32.const 0x10009))
+    (global $reg_h_addr i32 (i32.const 0x1000a))
+    (global $reg_l_addr i32 (i32.const 0x1000b))
 
     ;; instantiation
     (start $init)
@@ -64,9 +64,7 @@
         i32.load
 
         ;; load instuction at pc
-        i32.const 4
-        i32.mul
-        i32.load8_u
+        i32.load8_u        
         call_indirect $instr
 
         ;; increment pc
