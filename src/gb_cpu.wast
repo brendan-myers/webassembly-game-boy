@@ -28,18 +28,25 @@
     )
     (type $instr (func))
     (global $pc_addr i32 (i32.const 0x10000))
-    (global $sp_addr i32 (i32.const 0x10002))
+    (global $sp_addr i32 (i32.const 0x10004))
 
-    (global $reg_a_addr i32 (i32.const 0x10004))
-    (global $reg_f_addr i32 (i32.const 0x10005))
-    (global $reg_b_addr i32 (i32.const 0x10006))
-    (global $reg_c_addr i32 (i32.const 0x10007))
-    (global $reg_d_addr i32 (i32.const 0x10008))
-    (global $reg_e_addr i32 (i32.const 0x10009))
-    (global $reg_h_addr i32 (i32.const 0x1000a))
-    (global $reg_l_addr i32 (i32.const 0x1000b))
+    (global $reg_a_addr i32 (i32.const 0x10008))
+    (global $reg_f_addr i32 (i32.const 0x1000a))
+    (global $reg_b_addr i32 (i32.const 0x1000c))
+    (global $reg_c_addr i32 (i32.const 0x1000e))
+    (global $reg_d_addr i32 (i32.const 0x10010))
+    (global $reg_e_addr i32 (i32.const 0x10012))
+    (global $reg_h_addr i32 (i32.const 0x10014))
+    (global $reg_l_addr i32 (i32.const 0x10016))
 
-    ;; instantiation
+    ;; this is hacky! uses too much memory
+    (global $flag_z i32 (i32.const 0x10018))
+    (global $flag_n i32 (i32.const 0x1001a))
+    (global $flag_h i32 (i32.const 0x1001c))
+    (global $flag_c i32 (i32.const 0x1001e))
+    
+
+    ;; init
     (start $init)
     (func $init
         call $reset
@@ -50,23 +57,47 @@
     (func $reset
         ;; reset pc
         get_global $pc_addr
-        (i32.store (i32.const 0x100))
-    
-        i32.const 82    ;; 'R'
-        call $char_log
+        (i32.store (i32.const 0x0100))
+
+        ;; reset sp
+        get_global $sp_addr
+        (i32.store (i32.const 0xfffe))
     )
     
     ;; execute next instruction
     (export "tick" (func $tick))
     (func $tick
+        (local $inst_addr i32)
+
         ;; get the pc
         get_global $pc_addr
         i32.load
 
-        ;; load instuction at pc
-        i32.load8_u        
-        call_indirect $instr
+        ;; get opcode
+        i32.load8_u
+        set_local $inst_addr
 
+        call $_pc++
+
+        ;; execute instruction
+        get_local $inst_addr
+        call_indirect $instr
+    )
+    
+    ;; push to stack
+    (func $stack_push (param i32)
+        ;; decrement sp
+        get_global $sp_addr
+        get_global $sp_addr
+        i32.load
+        i32.const 2
+        (i32.store (i32.sub))
+    )
+
+    ;; pop from stack
+    (func $stack_pop)
+
+    (func $_pc++
         ;; increment pc
         get_global $pc_addr
         get_global $pc_addr
@@ -74,6 +105,11 @@
         i32.const 1
         (i32.store (i32.add))
     )
+
+
+    ;;
+    ;; Game Boy instruction set
+    ;;
 
     (func $0x00 ) ;; nop
     (func $0x01 i32.const 0x01 call $hex_log unreachable)
@@ -253,14 +289,43 @@
     (func $0xa5 i32.const 0xa5 call $hex_log unreachable)
     (func $0xa6 i32.const 0xa6 call $hex_log unreachable)
     (func $0xa7 i32.const 0xa7 call $hex_log unreachable)
-    (func $0xa8 i32.const 0xa8 call $hex_log unreachable)
-    (func $0xa9 i32.const 0xa9 call $hex_log unreachable)
-    (func $0xaa i32.const 0xaa call $hex_log unreachable)
-    (func $0xab i32.const 0xab call $hex_log unreachable)
-    (func $0xac i32.const 0xac call $hex_log unreachable)
-    (func $0xad i32.const 0xad call $hex_log unreachable)
-    (func $0xae i32.const 0xae call $hex_log unreachable)
-    (func $0xaf i32.const 0xaf call $hex_log unreachable)
+    (func $0xa8 ;; XOR B
+        get_global $reg_b_addr
+        get_global $reg_a_addr
+        call $_xor
+    )
+    (func $0xa9 ;; XOR C
+        get_global $reg_c_addr
+        get_global $reg_a_addr
+        call $_xor
+    )
+    (func $0xaa ;; XOR D
+        get_global $reg_d_addr
+        get_global $reg_a_addr
+        call $_xor
+    )
+    (func $0xab ;; XOR E
+        get_global $reg_e_addr
+        get_global $reg_a_addr
+        call $_xor
+    )
+    (func $0xac ;; XOR H
+        get_global $reg_h_addr
+        get_global $reg_a_addr
+        call $_xor
+    )
+    (func $0xad ;; XOR L
+        get_global $reg_l_addr
+        get_global $reg_a_addr
+        call $_xor
+    )
+    (func $0xae ;; XOR HL
+    i32.const 0xae call $hex_log unreachable)
+    (func $0xaf ;; XOR A
+        get_global $reg_a_addr
+        get_global $reg_a_addr
+        call $_xor
+    )
 
     (func $0xb0 i32.const 0xb0 call $hex_log unreachable)
     (func $0xb1 i32.const 0xb1 call $hex_log unreachable)
@@ -282,7 +347,12 @@
     (func $0xc0 i32.const 0xc0 call $hex_log unreachable)
     (func $0xc1 i32.const 0xc1 call $hex_log unreachable)
     (func $0xc2 i32.const 0xc2 call $hex_log unreachable)
-    (func $0xc3 i32.const 0xc3 call $hex_log unreachable)
+    (func $0xc3 ;; JP nn
+        get_global $pc_addr
+        get_global $pc_addr
+        i32.load
+        (i32.store (i32.load16_u))
+    )
     (func $0xc4 i32.const 0xc4 call $hex_log unreachable)
     (func $0xc5 i32.const 0xc5 call $hex_log unreachable)
     (func $0xc6 i32.const 0xc6 call $hex_log unreachable)
@@ -345,5 +415,42 @@
     (func $0xfc i32.const 0xfc call $hex_log unreachable)
     (func $0xfd i32.const 0xfd call $hex_log unreachable)
     (func $0xfe i32.const 0xfe call $hex_log unreachable)
-    (func $0xff i32.const 0xff call $hex_log unreachable)
+    (func $0xff ;; RST 38
+        i32.const 0x0038
+        call $_rst
+    )
+
+    (func $_rst (param i32)
+        ;; push current address onto stack
+        get_global $pc_addr
+        i32.load
+        i32.const 1
+        i32.sub
+        call $stack_push
+
+        ;; jmp
+        get_global $pc_addr
+        (i32.store (get_local 0))
+    )
+
+    (func $_xor (param $src_reg_addr i32) (param $tgt_reg_addr i32)
+        get_local $tgt_reg_addr
+
+        ;; get value of target register
+        get_local $tgt_reg_addr
+        i32.load
+
+        ;; get value at source register
+        get_local $src_reg_addr
+        i32.load
+
+        ;; xor and store result in reg
+        (i32.store (i32.xor))
+
+        ;; set flag z if result is zero
+        get_global $flag_z
+        get_local $tgt_reg_addr
+        i32.load
+        (i32.store (i32.eqz))
+    )
 )
