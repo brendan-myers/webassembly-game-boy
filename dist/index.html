@@ -26,11 +26,13 @@
             <div class="reg">SP&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="sp"></span></div>
             <div class="reg">PC&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="pc"></span></div>
         </div>
+
+        <button onclick="tick()">Tick()</button>
     </body>
     
     <script type="text/javascript" src="load_wasm.js" charset="utf-8"></script>
     <script>
-        const CLK_RATE = 0.001; // slow while we build!
+        const CLK_RATE = 0.005; // slow while we build!
         const CLK_TICK = 1 / CLK_RATE;
 
         const memory = new WebAssembly.Memory({ initial: 2 });  // use the 2nd page for registers et al (for now, TODO lookup out where they go)
@@ -87,10 +89,10 @@
             if (running) {
                 gb_cpu.exports.tick();
             }
-            setTimeout(tick, CLK_TICK);
+            //setTimeout(tick, CLK_TICK);
         };
 
-        setTimeout(tick, CLK_TICK);
+        //setTimeout(tick, CLK_TICK);
 
 
         // dump memory contents
