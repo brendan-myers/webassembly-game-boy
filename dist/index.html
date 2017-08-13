@@ -25,7 +25,6 @@
             <div class="reg">Reg L&nbsp;&nbsp;&nbsp;<span id="reg_l"></span></div>
             <div class="reg">SP&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="sp"></span></div>
             <div class="reg">PC&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span id="pc"></span></div>
-            <div class="reg">Flags&nbsp;&nbsp;&nbsp;<span id="flags"></span></div>
         </div>
     </body>
     
@@ -98,16 +97,15 @@
         printMemory = () => {
             const regs = [
                 { reg: 'reg_a', addr: 0x10008, len: 1},
-                { reg: 'reg_b', addr: 0x1000c, len: 1},
-                { reg: 'reg_c', addr: 0x1000e, len: 1},
-                { reg: 'reg_d', addr: 0x10010, len: 1},
-                { reg: 'reg_e', addr: 0x10012, len: 1},
-                { reg: 'reg_f', addr: 0x1000a, len: 1},
-                { reg: 'reg_h', addr: 0x10014, len: 1},
-                { reg: 'reg_l', addr: 0x10016, len: 1},
+                { reg: 'reg_b', addr: 0x1000a, len: 1},
+                { reg: 'reg_c', addr: 0x1000b, len: 1},
+                { reg: 'reg_d', addr: 0x1000c, len: 1},
+                { reg: 'reg_e', addr: 0x1000d, len: 1},
+                { reg: 'reg_f', addr: 0x10009, len: 1},
+                { reg: 'reg_h', addr: 0x1000e, len: 1},
+                { reg: 'reg_l', addr: 0x1000f, len: 1},
                 { reg: 'sp', addr: 0x10004, len: 2},
-                { reg: 'pc', addr: 0x10000, len: 2},
-                { reg: 'flags', addr: 0x10018, len: 4}
+                { reg: 'pc', addr: 0x10000, len: 2}
             ];
 
             for (let i=0; i<regs.length; i++) {
