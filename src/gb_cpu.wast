@@ -43,7 +43,7 @@
     (global $reg_h_addr i32 (i32.const 0x1000e))
     (global $reg_l_addr i32 (i32.const 0x1000f))
 
-    (global $flag_z i32 (i32.const 0x60))
+    (global $flag_z i32 (i32.const 0x80))
     (global $flag_n i32 (i32.const 0x40))
     (global $flag_h i32 (i32.const 0x20))
     (global $flag_c i32 (i32.const 0x10))
@@ -238,7 +238,23 @@
     (func $0x30 i32.const 0x30 call $hex_log unreachable)
     (func $0x31 ;; LD SP,nn
         i32.const 0x31 call $hex_log unreachable)
-    (func $0x32 i32.const 0x32 call $hex_log unreachable)
+    (func $0x32 ;; LDD A,(HL)
+        get_global $reg_a_addr
+
+        ;; get address pointer at HL
+        get_global $reg_h_addr
+        i32.load16_u
+        
+        ;; save value at address (HL) to reg A
+        (i32.store8 (i32.load8_u))
+
+        ;; decrement HL (don't set flags)
+        get_global $reg_l_addr
+        get_global $reg_l_addr
+        i32.load8_u
+        i32.const 1
+        (i32.store8 (i32.sub))
+    )
     (func $0x33 i32.const 0x33 call $hex_log unreachable)
     (func $0x34 i32.const 0x34 call $hex_log unreachable)
     (func $0x35 ;; DEC (HL)
@@ -511,13 +527,14 @@
                 i32.and
                 i32.eqz
                 br_if $eqz
-                
+               
                 get_global $flag_h
-                call $_set_flag
+                call $_clear_flag
                 br $exit
             end
+
             get_global $flag_h
-            call $_clear_flag
+            call $_set_flag
         end
 
         get_local $reg_addr
@@ -526,24 +543,25 @@
         i32.const 1
         (i32.store8 (i32.sub))
 
-        ;; set zero flag if result is zero
+        ;; set (non)zero flags accordingly
         block $exit
             block $neqz
                 get_local $reg_addr
                 i32.load8_u
 
                 br_if $neqz
-                
+
                 get_global $flag_z
                 call $_set_flag
                 br $exit
             end
+
             get_global $flag_z
             call $_clear_flag
-        end        
+        end
 
         get_global $flag_n
-        call $_clear_flag
+        call $_set_flag
     )
 
     (func $_load8 (param $reg_addr i32)
@@ -557,12 +575,12 @@
 
     (func $_load16 (param $reg_addr i32)
         get_local $reg_addr
-        get_global $pc_addr
-        i32.load
-        (i32.store (i32.load16_u))
-        
-        call $_pc++
-        call $_pc++
+        i32.const 1
+        i32.add
+        call $_load8
+
+        get_local $reg_addr
+        call $_load8
     )
 
     (func $_rst (param $addr i32)
