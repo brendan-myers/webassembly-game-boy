@@ -1,7 +1,3 @@
-;; TODO
-;; check decs for underflows
-;; u32 -> load8 overwrites nearby registers  
-
 (module $gb_cpu
     (import "js" "memory" (memory 1))
 
@@ -31,17 +27,27 @@
         $0xf0 $0xf1 $0xf2 $0xf3 $0xf4 $0xf5 $0xf6 $0xf7 $0xf8 $0xf9 $0xfa $0xfb $0xfc $0xfd $0xfe $0xff
     )
     (type $instr (func))
-    (global $pc_addr i32 (i32.const 0x10000))
-    (global $sp_addr i32 (i32.const 0x10004))
+    (global $pc_addr i32 (i32.const 0x11000))
+    (global $sp_addr i32 (i32.const 0x11004))
 
-    (global $reg_a_addr i32 (i32.const 0x10008))
-    (global $reg_f_addr i32 (i32.const 0x10009))
-    (global $reg_b_addr i32 (i32.const 0x1000a))
-    (global $reg_c_addr i32 (i32.const 0x1000b))
-    (global $reg_d_addr i32 (i32.const 0x1000c))
-    (global $reg_e_addr i32 (i32.const 0x1000d))
-    (global $reg_h_addr i32 (i32.const 0x1000e))
-    (global $reg_l_addr i32 (i32.const 0x1000f))
+    ;; interrupts
+    (global $i_addr i32 (i32.const 0x11010))
+    (global $i_master i32 (i32.const 0x01))
+    (global $i_enabled i32 (i32.const 0x02))
+    (global $i_vblank i32 (i32.const 0x04))
+    (global $i_lcdstat i32 (i32.const 0x08))
+    (global $i_timer i32 (i32.const 0x10))
+    (global $i_serial i32 (i32.const 0x20))
+    (global $i_joypad i32 (i32.const 0x40))
+
+    (global $reg_a_addr i32 (i32.const 0x1100f))
+    (global $reg_f_addr i32 (i32.const 0x1100e))
+    (global $reg_b_addr i32 (i32.const 0x1100d))
+    (global $reg_c_addr i32 (i32.const 0x1100c))
+    (global $reg_d_addr i32 (i32.const 0x1100b))
+    (global $reg_e_addr i32 (i32.const 0x1100a))
+    (global $reg_h_addr i32 (i32.const 0x11009))
+    (global $reg_l_addr i32 (i32.const 0x11008))
 
     (global $flag_z i32 (i32.const 0x80))
     (global $flag_n i32 (i32.const 0x40))
@@ -58,6 +64,36 @@
     ;; reset the emulator
     (export "reset" (func $reset))
     (func $reset
+        ;; clear ram
+        (local $start i32)
+        (local $end i32)
+
+        i32.const 0x7fff
+        set_local $start
+
+        i32.const 0xffff
+        set_local $end
+
+        block $exit
+            loop $loop
+                get_local $start
+                get_local $start
+                i32.const 1
+                i32.add
+                tee_local $start
+
+                (i32.store (i32.const 0))
+
+                get_local $start
+                get_local $end 
+                i32.lt_u
+                br_if $loop
+
+                br $exit
+            end
+        end
+
+
         ;; reset pc
         get_global $pc_addr
         (i32.store16 (i32.const 0x0100))
@@ -91,25 +127,29 @@
         get_global $reg_l_addr
         (i32.store8 (i32.const 0x4d))
     )
-    
+
     ;; execute next instruction
     (export "tick" (func $tick))
     (func $tick
         (local $inst_addr i32)
 
-        ;; get the pc
-        get_global $pc_addr
-        i32.load
+        loop $loop
+            ;; get the pc
+            get_global $pc_addr
+            i32.load
 
-        ;; get opcode
-        i32.load8_u
-        set_local $inst_addr
+            ;; get opcode
+            i32.load8_u
+            set_local $inst_addr
 
-        call $_pc++
+            call $_pc++
 
-        ;; execute instruction
-        get_local $inst_addr
-        call_indirect $instr
+            ;; execute instruction
+            get_local $inst_addr
+            call_indirect $instr
+
+            br $loop
+        end
     )
     
     ;; push to stack
@@ -141,7 +181,7 @@
 
     (func $0x00) ;; nop
     (func $0x01 ;; LD BC,nn 
-        get_global $reg_b_addr
+        get_global $reg_c_addr
         call $_load16
     )
     (func $0x02 i32.const 0x02 call $hex_log unreachable)
@@ -173,7 +213,7 @@
 
     (func $0x10 i32.const 0x10 call $hex_log unreachable)
     (func $0x11 ;; LD DE,nn 
-        get_global $reg_d_addr
+        get_global $reg_e_addr
         call $_load16
     )
     (func $0x12 i32.const 0x12 call $hex_log unreachable)
@@ -203,9 +243,38 @@
     )
     (func $0x1f i32.const 0x1f call $hex_log unreachable)
 
-    (func $0x20 i32.const 0x20 call $hex_log unreachable)
+    (func $0x20 ;; JR NZ,n
+        block $exit
+            block $pc
+                get_global $flag_z
+                call $_check_flag
+                i32.const 0
+                i32.ne
+
+                br_if $pc
+
+                get_global $pc_addr
+                get_global $pc_addr
+                i32.load
+                i32.load8_s
+
+                ;; 
+                call $_pc++
+
+                ;; current pc addr
+                get_global $pc_addr
+                i32.load
+
+                (i32.store (i32.add))
+
+                br $exit
+            end
+
+            call $_pc++
+        end
+    )
     (func $0x21 ;; LD HL,nn
-        get_global $reg_h_addr
+        get_global $reg_l_addr
         call $_load16
     )
     (func $0x22 i32.const 0x22 call $hex_log unreachable)
@@ -239,14 +308,16 @@
     (func $0x31 ;; LD SP,nn
         i32.const 0x31 call $hex_log unreachable)
     (func $0x32 ;; LDD A,(HL)
-        get_global $reg_a_addr
-
-        ;; get address pointer at HL
-        get_global $reg_h_addr
+        ;; get mem address at HL
+        get_global $reg_l_addr
         i32.load16_u
         
-        ;; save value at address (HL) to reg A
-        (i32.store8 (i32.load8_u))
+        ;; get value at register A
+        get_global $reg_a_addr
+        i32.load
+
+        ;; store reg A value at mem address HL
+        (i32.store(i32.load8_u))
 
         ;; decrement HL (don't set flags)
         get_global $reg_l_addr
@@ -270,7 +341,10 @@
         get_global $reg_a_addr
         call $_dec8
     )
-    (func $0x3e i32.const 0x3e call $hex_log unreachable)
+    (func $0x3e ;; LD A,n
+        get_global $reg_a_addr
+        call $_load8
+    )
     (func $0x3f i32.const 0x3f call $hex_log unreachable)
 
     (func $0x40 i32.const 0x40 call $hex_log unreachable)
@@ -429,14 +503,35 @@
     (func $0xb5 i32.const 0xb5 call $hex_log unreachable)
     (func $0xb6 i32.const 0xb6 call $hex_log unreachable)
     (func $0xb7 i32.const 0xb7 call $hex_log unreachable)
-    (func $0xb8 i32.const 0xb8 call $hex_log unreachable)
-    (func $0xb9 i32.const 0xb9 call $hex_log unreachable)
-    (func $0xba i32.const 0xba call $hex_log unreachable)
-    (func $0xbb i32.const 0xbb call $hex_log unreachable)
-    (func $0xbc i32.const 0xbc call $hex_log unreachable)
-    (func $0xbd i32.const 0xbd call $hex_log unreachable)
+    (func $0xb8 ;; CP B
+        get_global $reg_b_addr
+        call $_cp8_reg
+    )
+    (func $0xb9 ;; CP C
+        get_global $reg_c_addr
+        call $_cp8_reg
+    )
+    (func $0xba ;; CP D
+        get_global $reg_d_addr
+        call $_cp8_reg
+    )
+    (func $0xbb ;; CP E
+        get_global $reg_e_addr
+        call $_cp8_reg
+    )
+    (func $0xbc ;; CP H
+        get_global $reg_h_addr
+        call $_cp8_reg
+    )
+    (func $0xbd ;; CP L
+        get_global $reg_l_addr
+        call $_cp8_reg
+    )
     (func $0xbe i32.const 0xbe call $hex_log unreachable)
-    (func $0xbf i32.const 0xbf call $hex_log unreachable)
+    (func $0xbf ;; CP A 
+        get_global $reg_a_addr
+        call $_cp8_reg
+    )
 
     (func $0xc0 i32.const 0xc0 call $hex_log unreachable)
     (func $0xc1 i32.const 0xc1 call $hex_log unreachable)
@@ -477,7 +572,19 @@
     (func $0xde i32.const 0xde call $hex_log unreachable)
     (func $0xdf i32.const 0xdf call $hex_log unreachable)
 
-    (func $0xe0 i32.const 0xe0 call $hex_log unreachable)
+    (func $0xe0 ;; LDH (n),A
+        i32.const 0xff00
+        get_global $pc_addr
+        i32.load
+        i32.load8_u
+        i32.add
+
+        get_global $reg_a_addr
+
+        (i32.store (i32.load8_u))
+
+        call $_pc++
+    )
     (func $0xe1 i32.const 0xe1 call $hex_log unreachable)
     (func $0xe2 i32.const 0xe2 call $hex_log unreachable)
     (func $0xe3 i32.const 0xe3 call $hex_log unreachable)
@@ -494,10 +601,25 @@
     (func $0xee i32.const 0xee call $hex_log unreachable)
     (func $0xef i32.const 0xef call $hex_log unreachable)
 
-    (func $0xf0 i32.const 0xf0 call $hex_log unreachable)
+    (func $0xf0 ;; LDH A,(n)
+        get_global $reg_a_addr
+
+        i32.const 0xff00
+        get_global $pc_addr
+        i32.load
+        i32.load8_u
+        i32.add
+
+        (i32.store (i32.load8_u))
+
+        call $_pc++
+    )
     (func $0xf1 i32.const 0xf1 call $hex_log unreachable)
     (func $0xf2 i32.const 0xf2 call $hex_log unreachable)
-    (func $0xf3 i32.const 0xf3 call $hex_log unreachable)
+    (func $0xf3 ;; DI
+        get_global $i_master
+        call $_clear_interrupt  ;; TODO rename this function
+    )
     (func $0xf4 i32.const 0xf4 call $hex_log unreachable)
     (func $0xf5 i32.const 0xf5 call $hex_log unreachable)
     (func $0xf6 i32.const 0xf6 call $hex_log unreachable)
@@ -505,13 +627,111 @@
     (func $0xf8 i32.const 0xf8 call $hex_log unreachable)
     (func $0xf9 i32.const 0xf9 call $hex_log unreachable)
     (func $0xfa i32.const 0xfa call $hex_log unreachable)
-    (func $0xfb i32.const 0xfb call $hex_log unreachable)
+    (func $0xfb ;; EI
+        get_global $i_master
+        call $_set_interrupt  ;; TODO rename this function
+    )
     (func $0xfc i32.const 0xfc call $hex_log unreachable)
     (func $0xfd i32.const 0xfd call $hex_log unreachable)
-    (func $0xfe i32.const 0xfe call $hex_log unreachable)
+    (func $0xfe ;; CP n
+        get_global $reg_a_addr
+        i32.load8_u
+
+        get_global $pc_addr
+        i32.load
+        i32.load8_u
+
+        call $_cp8
+
+        call $_pc++
+
+        get_global $pc_addr
+        i32.load
+        i32.load8_u
+        call $hex_log
+    )
     (func $0xff ;; RST 38
         i32.const 0x0038
         call $_rst
+    )
+
+    (func $_cp8_reg (param $reg_addr i32)
+        get_global $reg_a_addr
+        i32.load8_u
+
+        get_local $reg_addr
+        i32.load8_u
+
+        call $_cp8
+    )
+
+    (func $_cp8 (param $reg_val i32) (param $cmp_val i32)
+        ;; check if values are the same
+        block $false
+            block $true
+                get_local $reg_val
+                get_local $cmp_val
+                
+                i32.eq
+
+                br_if $true
+
+                get_global $flag_z
+                call $_clear_flag
+
+                br $false
+            end
+
+            get_global $flag_z
+            call $_set_flag
+        end
+	
+        ;; check for borrow from bit 4
+        block $false
+            block $true
+                get_local $cmp_val
+                i32.const 0x0f
+                i32.and
+
+                get_local $reg_val
+                i32.const 0xf0
+                i32.and
+
+                i32.gt_u
+
+                br_if $true
+
+                get_global $flag_h
+                call $_clear_flag
+
+                br $false
+            end
+
+            get_global $flag_h
+            call $_set_flag
+        end
+
+        ;; A < C
+        block $false
+            block $true
+                get_local $cmp_val
+                get_local $reg_val
+
+                i32.gt_u
+                br_if $true
+
+                get_global $flag_c
+                call $_clear_flag
+
+                br $false
+            end
+
+            get_global $flag_c
+            call $_set_flag
+        end
+
+        get_global $flag_n
+        call $_set_flag
     )
 
     (func $_dec8 (param $reg_addr i32)
@@ -564,6 +784,12 @@
         call $_set_flag
     )
 
+    (func $_jp (param $addr i32)
+        get_global $pc_addr
+        get_local $addr
+        (i32.store)
+    )
+
     (func $_load8 (param $reg_addr i32)
         get_local $reg_addr
         get_global $pc_addr
@@ -575,12 +801,12 @@
 
     (func $_load16 (param $reg_addr i32)
         get_local $reg_addr
-        i32.const 1
-        i32.add
-        call $_load8
+        get_global $pc_addr
+        i32.load
+        (i32.store16 (i32.load16_u))
 
-        get_local $reg_addr
-        call $_load8
+        call $_pc++
+        call $_pc++
     )
 
     (func $_rst (param $addr i32)
@@ -635,7 +861,14 @@
         call $_clear_flag
     )
 
-    (func $_check_flag)
+    (func $_check_flag (param $flag i32) (result i32)
+        get_global $reg_f_addr
+        i32.load8_u
+
+        get_local $flag
+
+        i32.and
+    )
 
     (func $_set_flag (param $flag i32)
         get_global $reg_f_addr
@@ -664,5 +897,45 @@
         i32.const 0xff
         get_local $value
         i32.sub
+    )
+
+    ;;
+    ;; TODO - these are identical to flag reg
+    ;;        operations. Don't duplicate code!
+    ;;        Also, poorly named, as set/clear
+    ;;        apply to master/enable, not just
+    ;;        interrupt flags.
+    ;;
+
+    (func $_check_interrupt (param $flag i32) (result i32)
+        get_global $i_addr
+        i32.load8_u
+
+        get_local $flag
+
+        i32.and
+    )
+
+    (func $_set_interrupt (param $flag i32)
+        get_global $i_addr
+
+        get_global $i_addr
+        i32.load8_u
+
+        get_local $flag
+
+        (i32.store8 (i32.or))
+    )
+
+    (func $_clear_interrupt (param $flag i32)
+        get_global $i_addr
+
+        get_global $i_addr
+        i32.load8_u
+
+        get_local $flag
+        call $_not
+
+        (i32.store8 (i32.and))
     )
 )
